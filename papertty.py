@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env -S /bin/sh -c '"$(dirname "$0")/venv/bin/python" "$0" "$@"'
 # -*- coding: utf-8 -*-
 
 # Colin Nolan, 2020
@@ -47,7 +47,7 @@ from vncdotool import api
 from io import BytesIO
 
 # resource path
-RESOURCE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "resources")
+RESOURCE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "papertty/resources")
 
 class PaperTTY:
     """The main class - handles various settings and showing text on the display"""
@@ -228,7 +228,7 @@ class PaperTTY:
         """Load the PIL or TrueType font"""
         # get physical dimensions of font. Take the average width of
         # 1000 M's because oblique fonts a complicated.
-        self.font_width = font.getsize('M' * 1000)[0] // 1000
+        self.font_width = font.getbbox('M' * 1000)[0] // 1000
         if 'getmetrics' in dir(font):
             metrics_ascent, metrics_descent = font.getmetrics()
             self.spacing = int(self.spacing) if self.spacing != 'auto' else (metrics_descent - 2)
@@ -242,7 +242,7 @@ class PaperTTY:
             self.spacing = int(self.spacing) if self.spacing != 'auto' else 0
             # pil fonts don't seem to have metrics, but all
             # characters seem to have the same height
-            self.font_height = font.getsize('a')[1] + self.spacing
+            self.font_height = font.getbbox('a')[1] + self.spacing
 
     def init_display(self):
         """Initialize the display - call the driver's init method"""
@@ -352,7 +352,6 @@ class PaperTTY:
 
     def showvnc(self, host, display, password=None, rotate=None, invert=False, sleep=1, full_interval=100):
         with api.connect(':'.join([host, display]), password=password) as client:
-            previous_vnc_image = None
             diff_bbox = None
             # number of updates; when it's 0, do a full refresh
             updates = 0
@@ -364,7 +363,7 @@ class PaperTTY:
                     print("Timeout to server {}:{}".format(host, display))
                     client.disconnect()
                     sys.exit(1)
-                new_vnc_image = client.screen
+                new_vnc_image = client.screen.convert("L");
                 # apply rotation if any
                 if rotate:
                     new_vnc_image = new_vnc_image.rotate(rotate, expand=True)
@@ -374,30 +373,13 @@ class PaperTTY:
                 # rescale image if needed
                 if new_vnc_image.size != (self.driver.width, self.driver.height):
                     new_vnc_image = new_vnc_image.resize((self.driver.width, self.driver.height))
-                # if at least two frames have been processed, get a bounding box of their difference region
-                if new_vnc_image and previous_vnc_image:
-                    diff_bbox = self.band(self.img_diff(new_vnc_image, previous_vnc_image))
-                # frames differ, so we should update the display
-                if diff_bbox:
-                    # increment update counter
-                    updates = (updates + 1) % full_interval
-                    # if partial update is supported and it's not time for a full refresh,
-                    # draw just the different region
-                    if updates > 0 and (self.driver.supports_partial and self.partial):
-                        print("partial ({}): {}".format(updates, diff_bbox))
-                        self.driver.draw(diff_bbox[0], diff_bbox[1], new_vnc_image.crop(diff_bbox))
-                    # if partial update is not possible or desired, do a full refresh
-                    else:
-                        print("full ({}): {}".format(updates, new_vnc_image.size))
-                        self.driver.draw(0, 0, new_vnc_image)
-                # otherwise this is the first frame, so run a full refresh to get things going
-                else:
-                    if updates == 0:
-                        updates = (updates + 1) % full_interval
-                        print("initial ({}): {}".format(updates, new_vnc_image.size))
-                        self.driver.draw(0, 0, new_vnc_image)
-                previous_vnc_image = new_vnc_image.copy()
-                time.sleep(float(sleep))
+                self.driver.draw(0, 0, new_vnc_image.convert("1", dither=0))
+
+                current_time = time.time()
+                next_second = current_time - int(current_time) 
+                sleep_time = 1 - next_second
+                if(sleep_time > 0.1):
+                    time.sleep(sleep_time - 0.1)
 
     def showtext(self, text, fill, cursor=None, portrait=False, flipx=False, flipy=False, oldimage=None, oldtext=None, oldcursor=None):
         """Draw a string on the screen"""
@@ -1245,8 +1227,8 @@ def vnc(settings, host, display, password, rotate, invert, sleep, fullevery):
     """Display a VNC desktop"""
     
     #Disable 1bpp and a2 by default if not using terminal mode
-    settings.args['enable_a2'] = False
-    settings.args['enable_1bpp'] = False
+    #settings.args['enable_a2'] = False
+    #settings.args['enable_1bpp'] = False
 
     ptty = settings.get_init_tty()
     ptty.showvnc(host, display, password, int(rotate) if rotate else None, invert, sleep, fullevery)

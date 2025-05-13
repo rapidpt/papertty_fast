@@ -185,7 +185,8 @@ class IT8951(WaveshareEPD):
         if mhz:
             self.SPI.max_speed_hz = int(mhz * 1000000)
         else:
-            self.SPI.max_speed_hz = 2000000
+            self.SPI.spi.max_speed_hz = 8000000
+            self.SPI.max_speed_hz = 8000000
         print("SPI Speed = %.02f Mhz" % (self.SPI.max_speed_hz / 1000.0 / 1000.0))
         
         # It is unclear why this is necessary but it appears to be. The sample
