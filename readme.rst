@@ -1,3 +1,10 @@
+========
+A2-Mode papertty
+========
+This is a patched version of PapperTTY (https://github.com/joukos/PaperTTY) with A2-Mode and sync refresh to 
+the second to allow nice clock displays. The original project semes to be unmaintaind so I made an unmaintained fork
+for anybody who finds this usefull. Feel free to add the changes to your fork. Greatest possible thanks to the original authors.
+
 Changes
 =======
 - enable a2 mode
